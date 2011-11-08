@@ -6,7 +6,11 @@ package Mazes;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  *
@@ -41,6 +45,7 @@ public class Maze {
     private int width = 0;
     private int height = 0;
     private Node[][] nodes = null;
+    private int MIN_PATH_LENGTH = 0;
 
     private enum Direction {
 
@@ -49,9 +54,9 @@ public class Maze {
         UP,
         DOWN;
         private static final Direction[] dirs = {LEFT, RIGHT, UP, DOWN};
-        
-        private Direction opposite(){
-            switch(this) {
+
+        private Direction opposite() {
+            switch (this) {
                 case RIGHT:
                     return LEFT;
                 case LEFT:
@@ -77,38 +82,131 @@ public class Maze {
         this.width = width;
         this.height = height;
 
+        MIN_PATH_LENGTH = width * height - 1;
+
         nodes = new Node[height][width];
         for (int row = 0; row < height; row++) {
             for (int col = 0; col < width; col++) {
                 nodes[row][col] = new Node();
             }
         }
-        
-        int row = (int) (Math.random()*height)+1;
-        int col = 1;
-        Direction dir = Direction.LEFT;
-        
-        while (row >= 0 && col >= 0 && row <= height && col <= width) {
-            dir = dir.next();
-            switch(dir) {
+
+        randomize();
+    }
+
+    private void randomize() {
+        boolean[][] arrUsedCells = new boolean[height][width];
+        for (int row = 0; row < height; row++) {
+            for (int col = 0; col < width; col++) {
+                arrUsedCells[row][col] = false;
+            }
+        }
+
+        int row = (int) (Math.random() * height);
+        int col = 0;
+
+        nodes[row][col].setWallDown(false);
+        arrUsedCells[row][col] = true;
+
+        ArrayList<Point> lsPoints = new ArrayList<Point>();
+
+        while (!pathFrom(row, col, arrUsedCells, lsPoints)) {
+            Point pt = lsPoints.get((int) (Math.random() * lsPoints.size()));
+            row = pt.y;
+            col = pt.x;
+        }
+    }
+
+    private boolean pathFrom(int rowStart, int colStart, boolean[][] arrUsedCells, List<Point> lsPoints) {
+        int nPathLength = 0;
+        int row = rowStart, col = colStart;
+        lsPoints.add(new Point(col, row));
+        while (row >= 0 && col >= 0 && row < height && col < width) {
+            Direction dir = getDir(row, col, arrUsedCells, nPathLength);
+            if (dir == null) {
+                Point pt = lsPoints.get((int) (Math.random() * lsPoints.size()));
+                row = pt.y;
+                col = pt.x;
+                continue;
+            }
+
+            nPathLength++;
+            System.out.println(nPathLength);
+            switch (dir) {
+                case LEFT:
+                    nodes[row][col].setWallDown(false);
+                    col--;
+                    break;
                 case RIGHT:
-                    nodes[row][col+1].setWallDown(false);
+                    if (col < width - 1) {
+                        nodes[row][col + 1].setWallDown(false);
+                    } else {
+                        nodes[row][col].setWallDown(false);
+                    }
                     col++;
                     break;
                 case UP:
                     nodes[row][col].setWallRight(false);
                     row--;
                     break;
-                case LEFT:
-                    nodes[row][col].setWallDown(false);
-                    col--;
-                    break;
                 case DOWN:
-                    nodes[row+1][col].setWallRight(false);
+                    if (row < height - 1) {
+                        nodes[row + 1][col].setWallRight(false);
+                    } else {
+                        nodes[row][col].setWallRight(false);
+                    }
                     row++;
                     break;
             }
+            lsPoints.add(new Point(col, row));
+            if (row >= 0 && col >= 0 && row < height & col < width) {
+                arrUsedCells[row][col] = true;
+            } else {
+                return true;
+            }
         }
+        return true;
+    }
+
+    private Direction getDir(int row, int col, boolean[][] arrUsedCells, int nPathLength) {
+        ArrayList<Direction> dirs = new ArrayList<Direction>();
+        dirs.add(Direction.UP);
+        dirs.add(Direction.DOWN);
+        dirs.add(Direction.LEFT);
+        dirs.add(Direction.RIGHT);
+
+        if (row > 0 && arrUsedCells[row - 1][col]) {
+            dirs.remove(Direction.UP);
+        }
+        if (row < height - 1 && arrUsedCells[row + 1][col]) {
+            dirs.remove(Direction.DOWN);
+        }
+        if (col > 0 && arrUsedCells[row][col - 1]) {
+            dirs.remove(Direction.LEFT);
+        }
+        if (col < width - 1 && arrUsedCells[row][col + 1]) {
+            dirs.remove(Direction.RIGHT);
+        }
+
+        if (nPathLength < MIN_PATH_LENGTH) {
+            if (row == 0) {
+                dirs.remove(Direction.UP);
+            }
+            if (row == height - 1) {
+                dirs.remove(Direction.DOWN);
+            }
+            if (col == 0) {
+                dirs.remove(Direction.LEFT);
+            }
+            if (col == width - 1) {
+                dirs.remove(Direction.RIGHT);
+            }
+        }
+
+        if (dirs.isEmpty()) {
+            return null;
+        }
+        return dirs.get((int) (Math.random() * dirs.size()));
     }
 
     public int getHeight() {
@@ -129,6 +227,7 @@ public class Maze {
 
     public static void paint(Maze maze, Graphics2D g) {
         Color clrBackground = new Color(240, 240, 240);
+        clrBackground = Color.WHITE;
         Color clrLine = Color.BLACK;
 
         Rectangle bounds = g.getDeviceConfiguration().getBounds();
@@ -142,9 +241,9 @@ public class Maze {
         g.setColor(clrLine);
         g.draw(walls);
 
-        double stepX, stepY;
-        stepX = bounds.getWidth() / (maze.getWidth() - 1);
-        stepY = bounds.getHeight() / (maze.getHeight() - 1);
+        int stepX, stepY;
+        stepX = (int) bounds.getWidth() / (maze.getWidth() - 1);
+        stepY = (int) bounds.getHeight() / (maze.getHeight() - 1);
 
         g.setColor(clrLine);
         for (int row = 0; row < maze.getHeight(); row++) {
@@ -152,12 +251,22 @@ public class Maze {
                 boolean bDown = maze.hasWallDown(row, col);
                 boolean bRight = maze.hasWallRight(row, col);
 
+                int x0 = col * (int) stepX,
+                        y0 = row * (int) stepY;
                 if (bDown) {
-                    g.drawLine(col * (int) stepX, row * (int) stepY, col * (int) stepX, (row + 1) * (int) stepY);
+                    g.setColor(clrLine);
+                    g.drawLine(x0, y0, x0, y0 + stepX);
+                } else {
+                    g.setColor(clrBackground);
+                    g.drawLine(x0, y0 + 2, x0, y0 + stepY - 2);
                 }
 
                 if (bRight) {
-                    g.drawLine(col * (int) stepX, row * (int) stepY, (col + 1) * (int) stepX, row * (int) stepY);
+                    g.setColor(clrLine);
+                    g.drawLine(x0, y0, x0 + stepX, y0);
+                } else {
+                    g.setColor(clrBackground);
+                    g.drawLine(x0 + 2, y0, x0 + stepX - 2, y0);
                 }
             }
         }
