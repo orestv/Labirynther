@@ -137,7 +137,8 @@ public class Maze {
             System.out.println(nPathLength);
             switch (dir) {
                 case LEFT:
-                    nodes[row][col].setWallDown(false);
+                    if (col > 0)
+                        nodes[row][col].setWallDown(false);
                     col--;
                     break;
                 case RIGHT:
@@ -147,7 +148,8 @@ public class Maze {
                     col++;
                     break;
                 case UP:
-                    nodes[row][col].setWallRight(false);
+                    if (row > 0)
+                        nodes[row][col].setWallRight(false);
                     row--;
                     break;
                 case DOWN:
