@@ -46,6 +46,8 @@ public class Maze {
     private int height = 0;
     private Node[][] nodes = null;
     private int MIN_PATH_LENGTH = 0;
+    
+    int nExitPointRow = 0;
 
     private enum Direction {
 
@@ -115,6 +117,7 @@ public class Maze {
             row = pt.y;
             col = pt.x;
         }
+        nExitPointRow = (int) (Math.random()*height);
     }
 
     private boolean pathFrom(int rowStart, int colStart, boolean[][] arrUsedCells, List<Point> lsPoints) {
@@ -140,8 +143,6 @@ public class Maze {
                 case RIGHT:
                     if (col < width - 1) {
                         nodes[row][col + 1].setWallDown(false);
-                    } else {
-                        nodes[row][col].setWallDown(false);
                     }
                     col++;
                     break;
@@ -152,9 +153,7 @@ public class Maze {
                 case DOWN:
                     if (row < height - 1) {
                         nodes[row + 1][col].setWallRight(false);
-                    } else {
-                        nodes[row][col].setWallRight(false);
-                    }
+                    } 
                     row++;
                     break;
             }
@@ -270,5 +269,7 @@ public class Maze {
                 }
             }
         }
+        g.setColor(clrBackground);
+        g.drawLine(stepX*(maze.getWidth())-1, maze.nExitPointRow*stepY, stepX*(maze.getWidth())-1, (maze.nExitPointRow+1)*stepY);
     }
 }
