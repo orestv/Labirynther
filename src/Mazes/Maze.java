@@ -10,7 +10,10 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  *
@@ -18,260 +21,253 @@ import java.util.List;
  */
 public class Maze {
 
-    private static class Node {
+    public static class MazeException extends Exception {
 
-        private boolean bWallDown = true;
-        private boolean bWallRight = true;
+        public MazeException(String message) {
+            super(message);
+        }
+    }
 
-        public Node() {
+    private enum Direction {
+
+        RIGHT {
+
+            @Override
+            public Direction opposite() {
+                return LEFT;
+            }
+
+            @Override
+            public Point move(Point pt) {
+                return new Point(pt.x + 1, pt.y);
+            }
+        },
+        LEFT {
+
+            @Override
+            public Direction opposite() {
+                return RIGHT;
+            }
+
+            @Override
+            public Point move(Point pt) {
+                return new Point(pt.x - 1, pt.y);
+            }
+        },
+        UP {
+
+            @Override
+            public Direction opposite() {
+                return DOWN;
+            }
+
+            @Override
+            public Point move(Point pt) {
+                return new Point(pt.x, pt.y - 1);
+            }
+        },
+        DOWN {
+
+            @Override
+            public Direction opposite() {
+                return UP;
+            }
+
+            @Override
+            public Point move(Point pt) {
+                return new Point(pt.x, pt.y + 1);
+            }
+        };
+
+        public abstract Direction opposite();
+
+        public abstract Point move(Point pt);
+    }
+
+    private static class Cell {
+
+        private EnumMap<Direction, Boolean> walls;
+
+        public Cell() {
+            walls = new EnumMap<Direction, Boolean>(Direction.class);
+            for (Direction d : Direction.values()) {
+                walls.put(d, Boolean.TRUE);
+            }
         }
 
-        public boolean hasWallDown() {
-            return bWallDown;
+        public boolean hasWall(Direction d) {
+            return walls.get(d);
         }
 
-        public boolean hasWallRight() {
-            return bWallRight;
-        }
-
-        public void setWallDown(boolean bWallDown) {
-            this.bWallDown = bWallDown;
-        }
-
-        public void setWallRight(boolean bWallRight) {
-            this.bWallRight = bWallRight;
+        public void setWall(Direction d, boolean bWall) {
+            walls.put(d, bWall);
         }
     }
     private int width = 0;
     private int height = 0;
-    private Node[][] nodes = null;
-    private int MIN_PATH_LENGTH = 0;
-    
-    int nExitPointRow = 0;
+    private Cell[][] cells = null;
 
-    private enum Direction {
-
-        LEFT,
-        RIGHT,
-        UP,
-        DOWN;
-        private static final Direction[] dirs = {LEFT, RIGHT, UP, DOWN};
-
-        private Direction opposite() {
-            switch (this) {
-                case RIGHT:
-                    return LEFT;
-                case LEFT:
-                    return RIGHT;
-                case UP:
-                    return DOWN;
-                case DOWN:
-                    return UP;
-            }
-            return this;
+    public Maze(int width, int height) throws MazeException {
+        if (width <= 0 || height <= 0) {
+            throw new MazeException(String.format("Invalid maze initialization arguments: {0}x{1} specified for width*height", width, height));
         }
 
-        public Direction next() {
-            Direction result = this;
-            do {
-                result = dirs[(int) (Math.random() * 4)];
-            } while (result == this.opposite());
-            return result;
-        }
-    }
-
-    public Maze(int width, int height) {
         this.width = width;
         this.height = height;
+        cells = new Cell[width][height];
 
-        MIN_PATH_LENGTH = width * height - 1;
-
-        nodes = new Node[height][width];
-        for (int row = 0; row < height; row++) {
-            for (int col = 0; col < width; col++) {
-                nodes[row][col] = new Node();
+        for (Cell[] col : cells) {
+            for (int i = 0; i < col.length; i++) {
+                col[i] = new Cell();
             }
         }
 
-        randomize();
+        generate();
     }
 
-    private void randomize() {
-        boolean[][] arrUsedCells = new boolean[height][width];
-        for (int row = 0; row < height; row++) {
-            for (int col = 0; col < width; col++) {
-                arrUsedCells[row][col] = false;
-            }
+    private void generate() throws MazeException {
+        final int nCellCount = width * height;
+        if (nCellCount < 0) {
+            throw new MazeException("Maze too large, cell count overflow!");
         }
 
-        int row = (int) (Math.random() * height);
-        int col = 0;
+        Point pt = pickEntryPoint(this.width, this.height);
+        setWall(pt, Direction.LEFT, false);
+        ArrayList<Point> lsVisitedCells = new ArrayList<Point>(nCellCount);
+        lsVisitedCells.add(pt);
 
-        nodes[row][col].setWallDown(false);
-        arrUsedCells[row][col] = true;
+        while (lsVisitedCells.size() < nCellCount) {
+            pt = pickRandomItem(lsVisitedCells);
 
-        ArrayList<Point> lsPoints = new ArrayList<Point>();
-
-        while (!pathFrom(row, col, arrUsedCells, lsPoints)) {
-            Point pt = lsPoints.get((int) (Math.random() * lsPoints.size()));
-            row = pt.y;
-            col = pt.x;
+            generatePath(pt, lsVisitedCells);
         }
-        nExitPointRow = (int) (Math.random()*height);
+        setWall(pickExitPoint(width, height), Direction.RIGHT, false);
     }
 
-    private boolean pathFrom(int rowStart, int colStart, boolean[][] arrUsedCells, List<Point> lsPoints) {
-        int nPathLength = 0;
-        int row = rowStart, col = colStart;
-        lsPoints.add(new Point(col, row));
-        while (row >= 0 && col >= 0 && row < height && col < width) {
-            Direction dir = getDir(row, col, arrUsedCells, nPathLength);
-            if (dir == null) {
-                Point pt = lsPoints.get((int) (Math.random() * lsPoints.size()));
-                row = pt.y;
-                col = pt.x;
-                continue;
-            }
+    private void generatePath(Point ptStart, ArrayList<Point> lsVisitedCells) throws MazeException {
+        Point ptCurrent = ptStart;
+        ArrayList<Direction> lsAvailableDirections = null;
+        Direction currentDir = null;
+        while (!(lsAvailableDirections = (ArrayList<Direction>) getAvailableDirections(ptCurrent.x, ptCurrent.y, currentDir, lsVisitedCells)).isEmpty()) {
+            currentDir = pickRandomItem(lsAvailableDirections);
 
-            nPathLength++;
-            System.out.println(nPathLength);
-            switch (dir) {
-                case LEFT:
-                    if (col > 0)
-                        nodes[row][col].setWallDown(false);
-                    col--;
-                    break;
-                case RIGHT:
-                    if (col < width - 1) {
-                        nodes[row][col + 1].setWallDown(false);
-                    }
-                    col++;
-                    break;
-                case UP:
-                    if (row > 0)
-                        nodes[row][col].setWallRight(false);
-                    row--;
-                    break;
-                case DOWN:
-                    if (row < height - 1) {
-                        nodes[row + 1][col].setWallRight(false);
-                    } 
-                    row++;
-                    break;
-            }
-            lsPoints.add(new Point(col, row));
-            if (row >= 0 && col >= 0 && row < height & col < width) {
-                arrUsedCells[row][col] = true;
-            } else {
-                return true;
-            }
+            setWall(ptCurrent, currentDir, false);
+
+            ptCurrent = currentDir.move(ptCurrent);
+            lsVisitedCells.add(ptCurrent);
         }
-        return true;
     }
 
-    private Direction getDir(int row, int col, boolean[][] arrUsedCells, int nPathLength) {
-        ArrayList<Direction> dirs = new ArrayList<Direction>();
-        dirs.add(Direction.UP);
-        dirs.add(Direction.DOWN);
-        dirs.add(Direction.LEFT);
-        dirs.add(Direction.RIGHT);
-
-        if (row > 0 && arrUsedCells[row - 1][col]) {
-            dirs.remove(Direction.UP);
-        }
-        if (row < height - 1 && arrUsedCells[row + 1][col]) {
-            dirs.remove(Direction.DOWN);
-        }
-        if (col > 0 && arrUsedCells[row][col - 1]) {
-            dirs.remove(Direction.LEFT);
-        }
-        if (col < width - 1 && arrUsedCells[row][col + 1]) {
-            dirs.remove(Direction.RIGHT);
-        }
-
-        if (nPathLength < MIN_PATH_LENGTH) {
-            if (row == 0) {
-                dirs.remove(Direction.UP);
-            }
-            if (row == height - 1) {
-                dirs.remove(Direction.DOWN);
-            }
-            if (col == 0) {
-                dirs.remove(Direction.LEFT);
-            }
-            if (col == width - 1) {
-                dirs.remove(Direction.RIGHT);
-            }
-        }
-
-        if (dirs.isEmpty()) {
-            return null;
-        }
-        return dirs.get((int) (Math.random() * dirs.size()));
+    private static <T> T pickRandomItem(List<T> ls) {
+        int nIndex = (int) (Math.random() * ls.size());
+        return ls.get(nIndex);
     }
 
-    public int getHeight() {
-        return height;
+    private List<Direction> getAvailableDirections(int nCol, int nRow, Direction originalDirection, ArrayList<Point> lsVisitedCells) throws MazeException {
+        if (nCol < 0 || nCol >= width || nRow < 0 || nRow >= height) {
+            throw new MazeException(String.format("Invalid getAvailableDirections call: {0}/{1} specified for col/row, but maze dimensions are {2}/{3}", nCol, nRow, width, height));
+        }
+
+        ArrayList<Direction> result = new ArrayList<Direction>();
+
+        //Can we go up?
+        if (nRow > 0
+                && originalDirection != Direction.DOWN
+                && !lsVisitedCells.contains(new Point(nCol, nRow - 1))) {
+            result.add(Direction.UP);
+        }
+
+        if (nRow < this.height - 1
+                && originalDirection != Direction.UP
+                && !lsVisitedCells.contains(new Point(nCol, nRow + 1))) {
+            result.add(Direction.DOWN);
+        }
+
+        if (nCol > 0
+                && originalDirection != Direction.RIGHT
+                && !lsVisitedCells.contains(new Point(nCol - 1, nRow))) {
+            result.add(Direction.LEFT);
+        }
+
+        if (nCol < this.width - 1
+                && originalDirection != Direction.LEFT
+                && !lsVisitedCells.contains(new Point(nCol + 1, nRow))) {
+            result.add(Direction.RIGHT);
+        }
+
+        return result;
     }
 
-    public int getWidth() {
-        return width;
+    private static Point pickEntryPoint(int width, int height) {
+        return new Point(0, (int) (Math.random() * height));
     }
 
-    public boolean hasWallRight(int row, int col) {
-        return nodes[row][col].hasWallRight();
+    private static Point pickExitPoint(int width, int height) {
+        return new Point(width - 1, (int) (Math.random() * height));
     }
 
-    public boolean hasWallDown(int row, int col) {
-        return nodes[row][col].hasWallDown();
+    private boolean hasWall(Point pt, Direction direction) throws MazeException {
+        if (pt.x < 0 || pt.x >= width || pt.y < 0 || pt.y >= height) {
+            throw new MazeException(String.format("Invalid hasWall call: {0}/{1} specified for col/row, but maze dimensions are {2}/{3}", pt.x, pt.y, width, height));
+        }
+
+        return cells[pt.x][pt.y].hasWall(direction);
     }
 
-    public static void paint(Maze maze, Graphics2D g) {
-        Color clrBackground = new Color(240, 240, 240);
-        clrBackground = Color.WHITE;
-        Color clrLine = Color.BLACK;
+    private void setWall(Point pt, Direction direction, boolean bWall) throws MazeException {
+        if (pt.x < 0 || pt.x >= width || pt.y < 0 || pt.y >= height) {
+            throw new MazeException(String.format("Invalid setWall call: {0}/{1} specified for pt.x/pt.y, but maze dimensions are {2}/{3}", pt.x, pt.y, width, height));
+        }
+
+        cells[pt.x][pt.y].setWall(direction, bWall);
+
+        pt = direction.move(pt);
+        if (pt.x >= 0 && pt.x < this.width && pt.y >= 0 && pt.y < this.height) {
+            cells[pt.x][pt.y].setWall(direction.opposite(), bWall);
+        }
+    }
+
+    public void paint(Graphics2D g) {
+        Color clLine = Color.black;
+        Color clBackground = Color.white;
 
         Rectangle bounds = g.getDeviceConfiguration().getBounds();
-        Rectangle walls = (Rectangle) bounds.clone();
-        walls.height--;
-        walls.width--;
 
-        g.setColor(clrBackground);
+        g.setColor(clBackground);
         g.fill(bounds);
 
-        g.setColor(clrLine);
-        g.draw(walls);
+        g.setColor(clLine);
 
-        int stepX, stepY;
-        stepX = (int) bounds.getWidth() / (maze.getWidth() - 1);
-        stepY = (int) bounds.getHeight() / (maze.getHeight() - 1);
+        int nCellSize = Math.min((bounds.width - 1) / this.width, (bounds.height - 1) / this.height);
 
-        g.setColor(clrLine);
-        for (int row = 0; row < maze.getHeight(); row++) {
-            for (int col = 0; col < maze.getWidth(); col++) {
-                boolean bDown = maze.hasWallDown(row, col);
-                boolean bRight = maze.hasWallRight(row, col);
+        for (int nCol = 0; nCol < this.width; nCol++) {
+            for (int nRow = 0; nRow < this.height; nRow++) {
+                Cell c = cells[nCol][nRow];
 
-                int x0 = col * (int) stepX,
-                        y0 = row * (int) stepY;
-                if (bDown) {
-                    g.setColor(clrLine);
-                    g.drawLine(x0, y0, x0, y0 + stepX);
-                } else {
-                    g.setColor(clrBackground);
-                    g.drawLine(x0, y0 + 2, x0, y0 + stepY - 2);
-                }
+                int x_NW = nCol * nCellSize, y_NW = nRow * nCellSize;       //NorthWest
+                int x_NE = (nCol + 1) * nCellSize, y_NE = nRow * nCellSize;   //NorthEast
+                int x_SW = nCol * nCellSize, y_SW = (nRow + 1) * nCellSize;   //SouthWest
+                int x_SE = (nCol + 1) * nCellSize, y_SE = (nRow + 1) * nCellSize;   //SouthEast
 
-                if (bRight) {
-                    g.setColor(clrLine);
-                    g.drawLine(x0, y0, x0 + stepX, y0);
-                } else {
-                    g.setColor(clrBackground);
-                    g.drawLine(x0 + 2, y0, x0 + stepX - 2, y0);
+                for (Direction d : Direction.values()) {
+                    if (c.hasWall(d)) {
+                        switch (d) {
+                            case LEFT:
+                                g.drawLine(x_NW, y_NW, x_SW, y_SW);
+                                break;
+                            case RIGHT:
+                                g.drawLine(x_NE, y_NE, x_SE, y_SE);
+                                break;
+                            case UP:
+                                g.drawLine(x_NW, y_NW, x_NE, y_NE);
+                                break;
+                            case DOWN:
+                                g.drawLine(x_SW, y_SW, x_SE, y_SE);
+                                break;
+                        }
+                    }
                 }
             }
         }
-        g.setColor(clrBackground);
-        g.drawLine(stepX*(maze.getWidth())-1, maze.nExitPointRow*stepY, stepX*(maze.getWidth())-1, (maze.nExitPointRow+1)*stepY);
     }
 }

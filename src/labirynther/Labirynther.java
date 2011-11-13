@@ -4,6 +4,7 @@
  */
 package labirynther;
 
+import Mazes.Maze.MazeException;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -29,22 +30,26 @@ public class Labirynther {
     public static void main(String[] args) {
         int width = 1024, height = 768;
         
-        int nRows = 88;
-        int nCols = (int) (nRows/((double)width/height));
+        int nRows = 9;
+        int nCols = 12;//(int) (nRows/((double)width/height));
         
-        int labWidth = nRows, labHeight = nCols;
+        int labWidth = nCols, labHeight = nRows;
 
-        Maze lab = new Maze(labWidth, labHeight);
+        Maze lab = null;
+        try {
+            lab = new Maze(labWidth, labHeight);
+        } catch (MazeException ex) {
+            Logger.getLogger(Labirynther.class.getName()).log(Level.SEVERE, null, ex);
+            return;
+        }
         
-        int actualWidth = width - (width % labWidth);
-        int actualHeight = height - (height % labHeight);
 
-        BufferedImage image = new BufferedImage(actualWidth, actualHeight, BufferedImage.TYPE_INT_RGB);
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = image.createGraphics();
 
         Rectangle R = new Rectangle(width, height);
 
-        Maze.paint(lab, g);
+        lab.paint(g);
 
         try {
             ImageIO.write(image, "png", new File("result.png"));
