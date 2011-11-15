@@ -5,6 +5,8 @@
 package Mazes;
 
 import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -227,14 +229,12 @@ public class Maze {
         }
     }
 
-    public void paint(Graphics2D g) {
+    public void paint(Graphics g, Dimension bounds) {
         Color clLine = Color.black;
         Color clBackground = Color.white;
 
-        Rectangle bounds = g.getDeviceConfiguration().getBounds();
-
         g.setColor(clBackground);
-        g.fill(bounds);
+        g.fillRect(0, 0, bounds.width, bounds.height);
 
         g.setColor(clLine);
 
