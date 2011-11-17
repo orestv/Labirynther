@@ -229,25 +229,26 @@ public class Maze {
         }
     }
 
-    public void paint(Graphics g, Dimension bounds) {
+    public void paint(Graphics g, Rectangle bounds) {
         Color clLine = Color.black;
         Color clBackground = Color.white;
 
         g.setColor(clBackground);
-        g.fillRect(0, 0, bounds.width, bounds.height);
+        g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
 
         g.setColor(clLine);
 
-        int nCellSize = (int) Math.min((bounds.width - 1) / (double)this.width, (bounds.height - 1) / (double)this.height);
+        int nCellSize = (int) Math.min((bounds.width-bounds.x - 1) / (double)this.width, 
+                (bounds.height-bounds.y - 1) / (double)this.height);
 
         for (int nCol = 0; nCol < this.width; nCol++) {
             for (int nRow = 0; nRow < this.height; nRow++) {
                 Cell c = cells[nCol][nRow];
 
-                int x_NW = nCol * nCellSize, y_NW = nRow * nCellSize;       //NorthWest
-                int x_NE = (nCol + 1) * nCellSize, y_NE = nRow * nCellSize;   //NorthEast
-                int x_SW = nCol * nCellSize, y_SW = (nRow + 1) * nCellSize;   //SouthWest
-                int x_SE = (nCol + 1) * nCellSize, y_SE = (nRow + 1) * nCellSize;   //SouthEast
+                int x_NW = bounds.x + nCol * nCellSize, y_NW = bounds.y + nRow * nCellSize;       //NorthWest
+                int x_NE = bounds.x + (nCol + 1) * nCellSize, y_NE = bounds.y + nRow * nCellSize;   //NorthEast
+                int x_SW = bounds.x + nCol * nCellSize, y_SW = bounds.y + (nRow + 1) * nCellSize;   //SouthWest
+                int x_SE = bounds.x + (nCol + 1) * nCellSize, y_SE = bounds.y + (nRow + 1) * nCellSize;   //SouthEast
 
                 for (Direction d : Direction.values()) {
                     if (c.hasWall(d)) {

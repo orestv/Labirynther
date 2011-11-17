@@ -33,10 +33,12 @@ public class MazePanel extends JPanel {
 
         if (maze != null) {
 
-            Dimension rMazeSize = this.getSize();
-            int nProbableHeight = (int) (rMazeSize.width * nRatio);
-            if (rMazeSize.height < nProbableHeight) {
-                int nProbableWidth = (int) (rMazeSize.height / nRatio);
+            Rectangle rMazeSize = this.getBounds();
+            rMazeSize.x += 2;
+            rMazeSize.y += 2;
+            int nProbableHeight = (int) ((rMazeSize.width - rMazeSize.x) / nRatio);
+            if (rMazeSize.height - rMazeSize.y < nProbableHeight) {
+                int nProbableWidth = (int) (rMazeSize.height - rMazeSize.y * nRatio);
                 rMazeSize.width = nProbableWidth;
             } else {
                 rMazeSize.height = nProbableHeight;
