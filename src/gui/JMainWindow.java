@@ -78,9 +78,10 @@ public class JMainWindow extends JFrame implements ActionListener{
     
     private void generateMaze() {
         int nMazeWidth = (Integer)spColumns.getValue();
+        int nMazeHeight = (int) (nMazeWidth * 1.4212);
         int nCanvasWidth = pMaze.getWidth();
         int nCanvasHeight = pMaze.getHeight();
-        int nMazeHeight = (int) (nCanvasHeight * ((double)nMazeWidth/nCanvasWidth));
+        //int nMazeHeight = (int) (nCanvasHeight * ((double)nMazeWidth/nCanvasWidth));
         try {
             Maze m = new Maze(nMazeWidth, nMazeHeight);
             pMaze.setMaze(m);

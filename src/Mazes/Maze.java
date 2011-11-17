@@ -238,7 +238,7 @@ public class Maze {
 
         g.setColor(clLine);
 
-        int nCellSize = Math.min((bounds.width - 1) / this.width, (bounds.height - 1) / this.height);
+        int nCellSize = (int) Math.min((bounds.width - 1) / (double)this.width, (bounds.height - 1) / (double)this.height);
 
         for (int nCol = 0; nCol < this.width; nCol++) {
             for (int nRow = 0; nRow < this.height; nRow++) {
