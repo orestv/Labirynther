@@ -107,9 +107,27 @@ public class Maze {
     }
     private int width = 0;
     private int height = 0;
+    int nCellCount = 0;
     private Cell[][] cells = null;
+    private ProcessHandler handler = null;
+    
+    public static interface ProcessHandler {
+        public void generationUpdate(int nCellsGenerated, int nTotalCells);
+    }
 
     public Maze(int width, int height) throws MazeException {
+        init(width, height);
+
+        generate();
+    }
+    
+    public Maze(int width, int height, ProcessHandler handler) throws MazeException {
+        init (width, height);
+        this.handler = handler;
+        generate();
+    }
+    
+    private void init (int width, int height) throws MazeException {
         if (width <= 0 || height <= 0) {
             throw new MazeException(String.format("Invalid maze initialization arguments: {0}x{1} specified for width*height", width, height));
         }
@@ -123,12 +141,10 @@ public class Maze {
                 col[i] = new Cell();
             }
         }
-
-        generate();
     }
 
     private void generate() throws MazeException {
-        final int nCellCount = width * height;
+        nCellCount = width * height;
         if (nCellCount < 0) {
             throw new MazeException("Maze too large, cell count overflow!");
         }
@@ -137,6 +153,8 @@ public class Maze {
         setWall(pt, Direction.LEFT, false);
         ArrayList<Point> lsVisitedCells = new ArrayList<Point>(nCellCount);
         lsVisitedCells.add(pt);
+        if (this.handler != null)
+            this.handler.generationUpdate(1, nCellCount);
 
         while (lsVisitedCells.size() < nCellCount) {
             pt = pickRandomItem(lsVisitedCells);
@@ -157,6 +175,7 @@ public class Maze {
 
             ptCurrent = currentDir.move(ptCurrent);
             lsVisitedCells.add(ptCurrent);
+            this.handler.generationUpdate(lsVisitedCells.size(), nCellCount);            
         }
     }
 

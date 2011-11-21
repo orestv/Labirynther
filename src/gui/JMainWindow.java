@@ -21,71 +21,114 @@ import javax.swing.JFormattedTextField;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingUtilities;
 import net.miginfocom.swing.MigLayout;
+import sun.misc.JavaxSecurityAuthKerberosAccess;
 
 /**
  *
  * @author seth
  */
-public class JMainWindow extends JFrame implements ActionListener{
+public class JMainWindow extends JFrame implements ActionListener {
 
     private JSpinner spColumns;
     private MazePanel pMaze;
-    
+    private JProgressBar pbGeneration;
+
     public JMainWindow() throws HeadlessException {
-        super();        
+        super();
         this.center();
         this.init();
     }
-    
+
     private void init() {
         this.setDefaultCloseOperation(EXIT_ON_CLOSE);
-        
+
         JPanel p = new JPanel(new MigLayout());
-        
+
         pMaze = new MazePanel();
         JPanel pControls = new JPanel(new MigLayout());
         spColumns = new JSpinner();
-        ((SpinnerNumberModel)(spColumns.getModel())).setMinimum(10);
-        ((SpinnerNumberModel)(spColumns.getModel())).setMaximum(99);
-        ((JFormattedTextField)((JSpinner.NumberEditor)spColumns.getEditor()).getTextField()).setColumns(2);
+        ((SpinnerNumberModel) (spColumns.getModel())).setMinimum(10);
+        ((SpinnerNumberModel) (spColumns.getModel())).setMaximum(99);
+        ((JFormattedTextField) ((JSpinner.NumberEditor) spColumns.getEditor()).getTextField()).setColumns(2);
         spColumns.setValue(85);
-        
+
+        pbGeneration = new JProgressBar();
+        pbGeneration.setVisible(false);
+
         JButton btnStart = new JButton("Generate");
         btnStart.addActionListener(this);
-        
-        
+
         p.add(pMaze, "w 80%, h 100%");
-        
+
         pControls.add(new JLabel("Number of columns:"));
         pControls.add(spColumns, "wrap");
-        pControls.add(btnStart, "span, growx");
-        
-        p.add(pControls, "w 20%, h 100%");        
-        
+        pControls.add(btnStart, "span, growx, wrap");
+        pControls.add(pbGeneration, "span, growx, wrap");
+
+        p.add(pControls, "w 20%, h 100%");
+
         this.add(p);
         this.setVisible(true);
     }
-    
+
     private void center() {
         Dimension dScreen = Toolkit.getDefaultToolkit().getScreenSize();
-        this.setSize(3*dScreen.width/4, 3*dScreen.height/4);
+        this.setSize(3 * dScreen.width / 4, 3 * dScreen.height / 4);
         Dimension dThis = this.getSize();
-        this.setLocation((dScreen.width-dThis.width)/2, (dScreen.height-dThis.height)/2);
+        this.setLocation((dScreen.width - dThis.width) / 2, (dScreen.height - dThis.height) / 2);
     }
     
-    private void generateMaze() {
-        int nMazeWidth = (Integer)spColumns.getValue();
-        int nMazeHeight = (int) (nMazeWidth / 1.4212);
-        try {
-            Maze m = new Maze(nMazeWidth, nMazeHeight);
-            pMaze.setMaze(m);
+    private Runnable generateProgressBarUpdater(final int value) {
+        return new Runnable(){
+
+            @Override
+            public void run() {
+                pbGeneration.setValue(value);
+            }
             
-        } catch (MazeException ex) {
-            Logger.getLogger(JMainWindow.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        };
+    }
+
+    private void generateMaze() {
+        pbGeneration.setVisible(true);
+        final int nMazeWidth = (Integer) spColumns.getValue();
+        final int nMazeHeight = (int) (nMazeWidth / 1.4212);
+        pbGeneration.setMaximum(nMazeWidth*nMazeHeight);
+        
+        final Maze.ProcessHandler handler = new Maze.ProcessHandler() {
+
+            @Override
+            public void generationUpdate(int nCellsGenerated, int nTotalCells) {
+                SwingUtilities.invokeLater(generateProgressBarUpdater(nCellsGenerated));
+            }
+        };
+        
+        new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                try {
+                    final Maze m = new Maze(nMazeWidth, nMazeHeight, handler);
+                    SwingUtilities.invokeLater(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            pMaze.setMaze(m);
+                            pbGeneration.setVisible(false);
+                        }
+                    });
+
+                } catch (MazeException ex) {
+                    Logger.getLogger(JMainWindow.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }).start();
+
     }
 
     @Override
