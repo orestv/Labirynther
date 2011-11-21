@@ -5,23 +5,33 @@
 package Mazes;
 
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.print.PageFormat;
+import java.awt.print.Printable;
+import java.awt.print.PrinterException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  *
  * @author ovoloshchuk
  */
-public class Maze {
+public class Maze implements Printable{
+
+    @Override
+    public int print(Graphics graphics, PageFormat pageFormat, int pageIndex) throws PrinterException {
+        pageFormat.setOrientation(PageFormat.LANDSCAPE);
+        if (pageIndex > 0)
+            return NO_SUCH_PAGE;
+        Graphics2D g = (Graphics2D)graphics;
+        g.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
+        this.paint(g, new Rectangle((int)pageFormat.getImageableWidth(), (int)pageFormat.getImageableHeight()));
+        return PAGE_EXISTS;
+    }
 
     public static class MazeException extends Exception {
 

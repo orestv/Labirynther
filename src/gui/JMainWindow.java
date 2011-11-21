@@ -14,6 +14,8 @@ import java.awt.LayoutManager;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.print.PrinterException;
+import java.awt.print.PrinterJob;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JButton;
@@ -37,6 +39,9 @@ public class JMainWindow extends JFrame implements ActionListener {
     private JSpinner spColumns;
     private MazePanel pMaze;
     private JProgressBar pbGeneration;
+    private JButton btnPrint;
+    private JButton btnStart;
+    private Maze maze;
 
     public JMainWindow() throws HeadlessException {
         super();
@@ -60,8 +65,12 @@ public class JMainWindow extends JFrame implements ActionListener {
         pbGeneration = new JProgressBar();
         pbGeneration.setVisible(false);
 
-        JButton btnStart = new JButton("Generate");
+        btnStart = new JButton("Generate");
         btnStart.addActionListener(this);
+
+        btnPrint = new JButton("Print");
+        btnPrint.addActionListener(this);
+        btnPrint.setEnabled(false);
 
         p.add(pMaze, "w 80%, h 100%");
 
@@ -69,6 +78,7 @@ public class JMainWindow extends JFrame implements ActionListener {
         pControls.add(spColumns, "wrap");
         pControls.add(btnStart, "span, growx, wrap");
         pControls.add(pbGeneration, "span, growx, wrap");
+        pControls.add(btnPrint, "span, growx, wrap");
 
         p.add(pControls, "w 20%, h 100%");
 
@@ -82,24 +92,25 @@ public class JMainWindow extends JFrame implements ActionListener {
         Dimension dThis = this.getSize();
         this.setLocation((dScreen.width - dThis.width) / 2, (dScreen.height - dThis.height) / 2);
     }
-    
+
     private Runnable generateProgressBarUpdater(final int value) {
-        return new Runnable(){
+        return new Runnable() {
 
             @Override
             public void run() {
                 pbGeneration.setValue(value);
             }
-            
         };
     }
 
     private void generateMaze() {
         pbGeneration.setVisible(true);
+        btnPrint.setEnabled(false);
+        btnStart.setEnabled(false);
         final int nMazeWidth = (Integer) spColumns.getValue();
         final int nMazeHeight = (int) (nMazeWidth / 1.4212);
-        pbGeneration.setMaximum(nMazeWidth*nMazeHeight);
-        
+        pbGeneration.setMaximum(nMazeWidth * nMazeHeight);
+
         final Maze.ProcessHandler handler = new Maze.ProcessHandler() {
 
             @Override
@@ -107,19 +118,22 @@ public class JMainWindow extends JFrame implements ActionListener {
                 SwingUtilities.invokeLater(generateProgressBarUpdater(nCellsGenerated));
             }
         };
-        
+
         new Thread(new Runnable() {
 
             @Override
             public void run() {
                 try {
-                    final Maze m = new Maze(nMazeWidth, nMazeHeight, handler);
+                    maze = new Maze(nMazeWidth, nMazeHeight, handler);
+                    final Maze m = maze;
                     SwingUtilities.invokeLater(new Runnable() {
 
                         @Override
                         public void run() {
                             pMaze.setMaze(m);
                             pbGeneration.setVisible(false);
+                            btnPrint.setEnabled(true);
+                            btnStart.setEnabled(true);
                         }
                     });
 
@@ -133,6 +147,19 @@ public class JMainWindow extends JFrame implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        generateMaze();
+        if (e.getSource() == btnStart) {
+            generateMaze();
+        } else if (e.getSource() == btnPrint) {
+            PrinterJob job = PrinterJob.getPrinterJob();
+            job.setPrintable(maze);
+            boolean bPrint = job.printDialog();
+            if (bPrint) {
+                try {
+                    job.print();
+                } catch (PrinterException ex) {
+                    Logger.getLogger(JMainWindow.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
     }
 }
