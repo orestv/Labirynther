@@ -27,8 +27,6 @@ import javax.swing.JProgressBar;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
-import net.miginfocom.swing.MigLayout;
-import sun.misc.JavaxSecurityAuthKerberosAccess;
 
 /**
  *
